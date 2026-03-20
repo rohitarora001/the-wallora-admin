@@ -27,6 +27,7 @@ import Returns from "@/pages/Returns";
 import Categories from "@/pages/Categories";
 import VendorOrders from "@/pages/VendorOrders";
 import VendorOrderDetail from "@/pages/VendorOrderDetail";
+import CreateUser from "@/pages/CreateUser";
 
 const queryClient = new QueryClient();
 
@@ -60,6 +61,7 @@ const App = () => (
               <Route path="returns" element={<Returns />} />
               <Route path="vendor/orders" element={<VendorOrders />} />
               <Route path="vendor/orders/:id" element={<VendorOrderDetail />} />
+              <Route path="users/new" element={<CreateUser />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

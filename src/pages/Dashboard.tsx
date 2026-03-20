@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { Bell, Download, HelpCircle, ShoppingBag, TrendingUp, Users } from "lucide-react";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -157,9 +158,10 @@ export default function Dashboard() {
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm">View Orders</Button>
-          <Button variant="outline" size="sm">Manage Customers</Button>
-          <Button variant="outline" size="sm">Manage Inventory</Button>
+          <Link to="/orders"><Button variant="outline" size="sm">View Orders</Button></Link>
+          <Link to="/customers"><Button variant="outline" size="sm">Manage Customers</Button></Link>
+          <Link to="/products"><Button variant="outline" size="sm">Manage Inventory</Button></Link>
+          <Link to="/users/new"><Button size="sm">Create User</Button></Link>
         </CardContent>
       </Card>
     </div>
