@@ -32,7 +32,6 @@ interface PagedResult<T> {
 
 const PRODUCTION_STATUSES = [
   { value: "", label: "All" },
-  { value: "Confirmed", label: "Confirmed" },
   { value: "Received", label: "Received" },
   { value: "ReadyToPrint", label: "Ready to Print" },
   { value: "Printed", label: "Printed" },
@@ -40,7 +39,6 @@ const PRODUCTION_STATUSES = [
 ];
 
 const STATUS_COLORS: Record<string, string> = {
-  Confirmed:    "bg-blue-100 text-blue-800",
   Received:     "bg-yellow-100 text-yellow-800",
   ReadyToPrint: "bg-orange-100 text-orange-800",
   Printed:      "bg-purple-100 text-purple-800",
