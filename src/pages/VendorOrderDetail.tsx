@@ -1,17 +1,9 @@
-import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Download, Loader2, Package } from "lucide-react";
+import { ArrowLeft, Download, Loader2, Package, ChevronRight } from "lucide-react";
 
 interface VendorOrderItem {
   productTitle: string;
@@ -31,13 +23,13 @@ interface VendorOrderDetail {
   createdAt: string;
 }
 
-// Only statuses vendors are allowed to set, in forward-progression order
-const VENDOR_STATUS_OPTIONS = [
-  { value: "Received",     label: "Received" },
-  { value: "ReadyToPrint", label: "Ready to Print" },
-  { value: "Printed",      label: "Printed" },
-  { value: "ReadyToShip",  label: "Ready to Ship" },
-];
+// Forward-only pipeline — each status maps to exactly one valid next step
+const NEXT_STATUS: Record<string, { value: string; label: string } | null> = {
+  Received:     { value: "ReadyToPrint", label: "Mark Ready to Print" },
+  ReadyToPrint: { value: "Printed",      label: "Mark Printed" },
+  Printed:      { value: "ReadyToShip",  label: "Mark Ready to Ship" },
+  ReadyToShip:  null, // final vendor step — admin handles shipping
+};
 
 const STATUS_COLORS: Record<string, string> = {
   Confirmed:    "bg-blue-100 text-blue-800",
@@ -59,8 +51,6 @@ export default function VendorOrderDetail() {
     enabled: !!id,
   });
 
-  const [newStatus, setNewStatus] = useState("");
-
   const updateMutation = useMutation({
     mutationFn: (status: string) =>
       api.patch(`/vendor/orders/${id}/status`, { status }),
@@ -68,7 +58,6 @@ export default function VendorOrderDetail() {
       toast({ title: "Status updated successfully" });
       queryClient.invalidateQueries({ queryKey: ["vendor-order", id] });
       queryClient.invalidateQueries({ queryKey: ["vendor-orders"] });
-      setNewStatus("");
     },
     onError: (err: Error) => {
       toast({ title: "Failed to update status", description: err.message, variant: "destructive" });
@@ -114,30 +103,33 @@ export default function VendorOrderDetail() {
       </div>
 
       {/* Update Status */}
-      <div className="rounded-lg border bg-white p-5">
-        <h2 className="font-medium mb-3">Update Production Status</h2>
-        <div className="flex gap-3">
-          <Select value={newStatus} onValueChange={setNewStatus}>
-            <SelectTrigger className="w-52">
-              <SelectValue placeholder="Select new status" />
-            </SelectTrigger>
-            <SelectContent>
-              {VENDOR_STATUS_OPTIONS.map((s) => (
-                <SelectItem key={s.value} value={s.value} disabled={s.value === order.status}>
-                  {s.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            disabled={!newStatus || updateMutation.isPending}
-            onClick={() => updateMutation.mutate(newStatus)}
-          >
-            {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-            Update
-          </Button>
-        </div>
-      </div>
+      {(() => {
+        const next = NEXT_STATUS[order.status];
+        return next ? (
+          <div className="rounded-lg border bg-white p-5 flex items-center justify-between">
+            <div>
+              <p className="font-medium">Advance Production Status</p>
+              <p className="text-sm text-slate-500 mt-0.5">
+                Current: <strong>{displayStatus(order.status)}</strong> → Next: <strong>{next.label.replace("Mark ", "")}</strong>
+              </p>
+            </div>
+            <Button
+              disabled={updateMutation.isPending}
+              onClick={() => updateMutation.mutate(next.value)}
+              className="gap-1.5"
+            >
+              {updateMutation.isPending
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <ChevronRight className="h-4 w-4" />}
+              {next.label}
+            </Button>
+          </div>
+        ) : (
+          <div className="rounded-lg border bg-green-50 border-green-200 p-5 text-sm text-green-700 font-medium">
+            ✓ Order is Ready to Ship — awaiting admin to mark as Shipped.
+          </div>
+        );
+      })()}
 
       {/* Order Notes */}
       {order.orderNotes && (
