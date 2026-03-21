@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Bell, HelpCircle, LayoutDashboard, Layers, LogOut, MessageSquare, Package, PrinterCheck, Ruler, RotateCcw, ShoppingCart, Star, Tag, UserPlus, Users } from "lucide-react";
+import { Bell, HelpCircle, Image, LayoutDashboard, Layers, LogOut, MessageSquare, Package, PrinterCheck, Ruler, RotateCcw, ShoppingCart, Star, Tag, UserPlus, Users } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,7 @@ const adminNavItems = [
   { to: "/reviews", label: "Reviews", icon: Star },
   { to: "/finish-options", label: "Finish Options", icon: Layers },
   { to: "/categories",    label: "Categories",     icon: Tag },
+  { to: "/hero-slides",   label: "Hero Slides",     icon: Image },
   { to: "/sizes-pricing", label: "Sizes & Pricing", icon: Ruler },
   { to: "/support",       label: "Support",         icon: MessageSquare },
   { to: "/returns",       label: "Returns",         icon: RotateCcw },

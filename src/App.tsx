@@ -25,6 +25,7 @@ import SupportTickets from "@/pages/SupportTickets";
 import SupportTicketDetail from "@/pages/SupportTicketDetail";
 import Returns from "@/pages/Returns";
 import Categories from "@/pages/Categories";
+import HeroSlides from "@/pages/HeroSlides";
 import VendorOrders from "@/pages/VendorOrders";
 import VendorOrderDetail from "@/pages/VendorOrderDetail";
 import CreateUser from "@/pages/CreateUser";
@@ -55,6 +56,7 @@ const App = () => (
               <Route path="reviews" element={<Reviews />} />
               <Route path="finish-options" element={<FinishOptions />} />
               <Route path="categories" element={<Categories />} />
+              <Route path="hero-slides" element={<HeroSlides />} />
               <Route path="sizes-pricing" element={<SizesPricing />} />
               <Route path="support" element={<SupportTickets />} />
               <Route path="support/:id" element={<SupportTicketDetail />} />
