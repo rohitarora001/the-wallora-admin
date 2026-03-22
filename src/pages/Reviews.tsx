@@ -4,6 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Star, Check, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+interface PagedResult<T> {
+  items: T[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}
+
 interface PendingReview {
   id: string;
   productId: string;
@@ -20,8 +27,8 @@ export default function Reviews() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get<PendingReview[]>("/admin/reviews/pending")
-      .then(setReviews)
+    api.get<PagedResult<PendingReview>>("/admin/reviews/pending")
+      .then(data => setReviews(data.items ?? []))
       .catch(e => toast({ title: "Error", description: e.message, variant: "destructive" }))
       .finally(() => setLoading(false));
   }, [toast]);
