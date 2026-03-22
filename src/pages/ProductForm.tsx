@@ -209,7 +209,7 @@ export default function ProductForm() {
 
     const payload = {
       title: form.title.trim(),
-      basePrice: Number(form.basePrice),
+      basePrice: Number(form.basePrice) || Number(form.displayPrice),
       displayPrice: Number(form.displayPrice),
       originalPrice: form.originalPrice.trim() ? Number(form.originalPrice) : null,
       image: form.image.trim(),
