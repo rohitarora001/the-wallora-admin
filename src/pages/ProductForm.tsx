@@ -164,7 +164,6 @@ export default function ProductForm() {
     const displayPrice = Number(form.displayPrice);
     const originalPrice = form.originalPrice.trim() ? Number(form.originalPrice) : null;
 
-    if (Number.isNaN(basePrice) || basePrice <= 0) return "Base price must be greater than 0.";
     if (Number.isNaN(displayPrice) || displayPrice <= 0) return "Display price must be greater than 0.";
     if (originalPrice !== null && (Number.isNaN(originalPrice) || originalPrice <= 0)) return "Original price must be greater than 0 when provided.";
 
@@ -338,19 +337,6 @@ export default function ProductForm() {
                   type="number"
                   value={form.sortOrder}
                   onChange={(event) => setField("sortOrder", event.target.value)}
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label htmlFor="basePrice">Base Price (USD)</Label>
-                <Input
-                  id="basePrice"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.basePrice}
-                  onChange={(event) => setField("basePrice", event.target.value)}
-                  required
                 />
               </div>
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Eye, Plus, Search } from "lucide-react";
+import { Eye, FlaskConical, Plus, Search } from "lucide-react";
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ interface OrderListItem {
   totalAmount: number;
   podStatus: string;
   createdAt: string;
+  isTest: boolean;
 }
 
 interface PagedResult<T> {
@@ -40,6 +41,7 @@ export default function Orders() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [loading, setLoading] = useState(true);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const pageSize = 20;
 
   const load = useCallback(() => {
@@ -61,6 +63,17 @@ export default function Orders() {
   }, [page, status, podStatus, search, dateFrom, dateTo, toast]);
 
   useEffect(() => { load(); }, [load]);
+
+  const toggleTest = (id: string, current: boolean) => {
+    setTogglingId(id);
+    api.patch(`/admin/orders/${id}/test`, { isTest: !current })
+      .then(() => {
+        setOrders((prev) => prev.map((o) => o.id === id ? { ...o, isTest: !current } : o));
+        toast({ title: current ? "Marked as real order" : "Marked as test order" });
+      })
+      .catch((e) => toast({ title: "Error", description: e.message, variant: "destructive" }))
+      .finally(() => setTogglingId(null));
+  };
 
   const totalPages = Math.ceil(totalCount / pageSize);
 
@@ -117,8 +130,17 @@ export default function Orders() {
             ) : orders.length === 0 ? (
               <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">No orders found.</td></tr>
             ) : orders.map((o) => (
-              <tr key={o.id} className="hover:bg-slate-50">
-                <td className="px-4 py-3 font-mono text-xs font-semibold">{o.orderNumber}</td>
+              <tr key={o.id} className={`hover:bg-slate-50 ${o.isTest ? "bg-amber-50/60" : ""}`}>
+                <td className="px-4 py-3 font-mono text-xs font-semibold">
+                  <div className="flex items-center gap-1.5">
+                    {o.orderNumber}
+                    {o.isTest && (
+                      <span className="inline-flex items-center gap-1 rounded bg-amber-100 text-amber-700 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+                        <FlaskConical className="h-2.5 w-2.5" />TEST
+                      </span>
+                    )}
+                  </div>
+                </td>
                 <td className="px-4 py-3 text-slate-600 text-xs">{new Date(o.createdAt).toLocaleDateString()}</td>
                 <td className="px-4 py-3 text-slate-700">{o.email}</td>
                 <td className="px-4 py-3 max-w-[220px] truncate text-slate-600">{o.productPreview}</td>
@@ -127,9 +149,21 @@ export default function Orders() {
                   <span className="rounded-full bg-slate-100 text-slate-700 px-2 py-1 text-xs">{o.podStatus || o.status}</span>
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <Link to={`/orders/${o.id}`}>
-                    <Button variant="ghost" size="icon" className="h-8 w-8"><Eye className="h-4 w-4" /></Button>
-                  </Link>
+                  <div className="flex items-center justify-end gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={`h-8 w-8 ${o.isTest ? "text-amber-600 hover:text-amber-700" : "text-slate-400 hover:text-amber-600"}`}
+                      title={o.isTest ? "Unmark as test" : "Mark as test"}
+                      disabled={togglingId === o.id}
+                      onClick={() => toggleTest(o.id, o.isTest)}
+                    >
+                      <FlaskConical className="h-4 w-4" />
+                    </Button>
+                    <Link to={`/orders/${o.id}`}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8"><Eye className="h-4 w-4" /></Button>
+                    </Link>
+                  </div>
                 </td>
               </tr>
             ))}
