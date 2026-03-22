@@ -13,6 +13,7 @@ interface Category {
   displayName: string;
   description: string | null;
   introText: string | null;
+  heroImageUrl: string | null;
   sortOrder: number;
   isActive: boolean;
 }
@@ -22,6 +23,7 @@ const emptyForm: Omit<Category, "slug"> & { slug: string } = {
   displayName: "",
   description: "",
   introText: "",
+  heroImageUrl: "",
   sortOrder: 0,
   isActive: true,
 };
@@ -58,6 +60,7 @@ export default function Categories() {
       displayName: c.displayName,
       description: c.description ?? "",
       introText: c.introText ?? "",
+      heroImageUrl: c.heroImageUrl ?? "",
       sortOrder: c.sortOrder,
       isActive: c.isActive,
     });
@@ -72,6 +75,7 @@ export default function Categories() {
           displayName: form.displayName,
           description: form.description || null,
           introText: form.introText || null,
+          heroImageUrl: form.heroImageUrl || null,
           sortOrder: Number(form.sortOrder),
           isActive: form.isActive,
         });
@@ -82,6 +86,7 @@ export default function Categories() {
           displayName: form.displayName,
           description: form.description || null,
           introText: form.introText || null,
+          heroImageUrl: form.heroImageUrl || null,
           sortOrder: Number(form.sortOrder),
           isActive: form.isActive,
         });
@@ -185,6 +190,24 @@ export default function Categories() {
             {field("displayName", "Display Name")}
             {field("description", "Short Description (meta tag)", "textarea")}
             {field("introText", "Intro Text (shown above products on shop page)", "textarea")}
+            <div className="space-y-1">
+              <Label>Hero Image URL <span className="text-gray-400 font-normal">(Collections dropdown thumbnail &amp; Shop page banner)</span></Label>
+              <Input
+                type="text"
+                placeholder="https://…"
+                value={String(form.heroImageUrl)}
+                onChange={e => setForm(f => ({ ...f, heroImageUrl: e.target.value }))}
+              />
+              {form.heroImageUrl && (
+                <img
+                  src={String(form.heroImageUrl)}
+                  alt="Hero preview"
+                  className="mt-2 rounded-lg object-cover"
+                  style={{ width: 120, height: 80 }}
+                  onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                />
+              )}
+            </div>
             {field("sortOrder", "Sort Order", "number")}
             <div className="flex items-center gap-2">
               <input
