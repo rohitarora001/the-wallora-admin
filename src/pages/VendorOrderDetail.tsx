@@ -1,9 +1,20 @@
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Download, Loader2, Package, ChevronRight } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { ArrowLeft, Download, Loader2, Package, ChevronRight, Undo2 } from "lucide-react";
 
 interface VendorOrderItem {
   productTitle: string;
@@ -23,8 +34,9 @@ interface VendorOrderDetail {
   createdAt: string;
 }
 
-// Forward-only pipeline — each status maps to exactly one valid next step
+// Production pipeline — each status maps to the next step (vendor-settable only)
 const NEXT_STATUS: Record<string, { value: string; label: string } | null> = {
+  Confirmed:    { value: "Received",     label: "Accept & Mark Received" },
   Received:     { value: "ReadyToPrint", label: "Mark Ready to Print" },
   ReadyToPrint: { value: "Printed",      label: "Mark Printed" },
   Printed:      { value: "ReadyToShip",  label: "Mark Ready to Ship" },
@@ -36,7 +48,7 @@ const STATUS_COLORS: Record<string, string> = {
   Received:     "bg-yellow-100 text-yellow-800",
   ReadyToPrint: "bg-orange-100 text-orange-800",
   Printed:      "bg-purple-100 text-purple-800",
-  ReadyToShip:  "bg-green-100 text-green-800",
+  ReadyToShip:  "bg-emerald-100 text-emerald-800",
 };
 
 export default function VendorOrderDetail() {
@@ -44,6 +56,7 @@ export default function VendorOrderDetail() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const { data: order, isLoading, isError } = useQuery<VendorOrderDetail>({
     queryKey: ["vendor-order", id],
@@ -105,29 +118,85 @@ export default function VendorOrderDetail() {
       {/* Update Status */}
       {(() => {
         const next = NEXT_STATUS[order.status];
-        return next ? (
-          <div className="rounded-lg border bg-white p-5 flex items-center justify-between">
-            <div>
-              <p className="font-medium">Advance Production Status</p>
-              <p className="text-sm text-slate-500 mt-0.5">
-                Current: <strong>{displayStatus(order.status)}</strong> → Next: <strong>{next.label.replace("Mark ", "")}</strong>
-              </p>
+        const isReadyToShip = order.status === "ReadyToShip";
+
+        if (isReadyToShip) {
+          return (
+            <div className="space-y-3">
+              <div className="rounded-lg border bg-emerald-50 border-emerald-200 p-5 text-sm text-emerald-700 font-medium">
+                ✓ Order is Ready to Ship — awaiting admin to mark as Shipped.
+              </div>
+              {/* Undo button — in case vendor made a mistake */}
+              <div className="rounded-lg border bg-white p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-700">Made a mistake?</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Undo back to Printed if the order isn&apos;t actually ready.</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={updateMutation.isPending}
+                  onClick={() => updateMutation.mutate("Printed")}
+                  className="gap-1.5 text-slate-600"
+                >
+                  {updateMutation.isPending
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <Undo2 className="h-4 w-4" />}
+                  Undo — Back to Printed
+                </Button>
+              </div>
             </div>
-            <Button
-              disabled={updateMutation.isPending}
-              onClick={() => updateMutation.mutate(next.value)}
-              className="gap-1.5"
-            >
-              {updateMutation.isPending
-                ? <Loader2 className="h-4 w-4 animate-spin" />
-                : <ChevronRight className="h-4 w-4" />}
-              {next.label}
-            </Button>
-          </div>
-        ) : (
-          <div className="rounded-lg border bg-green-50 border-green-200 p-5 text-sm text-green-700 font-medium">
-            ✓ Order is Ready to Ship — awaiting admin to mark as Shipped.
-          </div>
+          );
+        }
+
+        if (!next) return null;
+
+        const isReadyToShipNext = next.value === "ReadyToShip";
+
+        return (
+          <>
+            <div className="rounded-lg border bg-white p-5 flex items-center justify-between">
+              <div>
+                <p className="font-medium">Advance Production Status</p>
+                <p className="text-sm text-slate-500 mt-0.5">
+                  Current: <strong>{displayStatus(order.status)}</strong> → Next: <strong>{displayStatus(next.value)}</strong>
+                </p>
+              </div>
+              <Button
+                disabled={updateMutation.isPending}
+                onClick={() => isReadyToShipNext ? setConfirmOpen(true) : updateMutation.mutate(next.value)}
+                className="gap-1.5"
+              >
+                {updateMutation.isPending
+                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                  : <ChevronRight className="h-4 w-4" />}
+                {next.label}
+              </Button>
+            </div>
+
+            {/* ReadyToShip confirmation dialog */}
+            <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Confirm: Ready to Ship?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Please confirm that all items in this order have been printed, quality-checked, and securely packed. Once marked as Ready to Ship, the admin will be notified to arrange pickup.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Go Back</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => {
+                      setConfirmOpen(false);
+                      updateMutation.mutate("ReadyToShip");
+                    }}
+                  >
+                    Yes, Ready to Ship
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </>
         );
       })()}
 

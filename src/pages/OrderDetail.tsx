@@ -22,12 +22,35 @@ interface OrderItem {
 }
 
 const STATUS_TRANSITIONS: Record<string, string[]> = {
-  Pending:    ["Confirmed", "Cancelled"],
-  Confirmed:  ["Processing", "Cancelled", "Refunded"],
-  Processing: ["Shipped", "Cancelled", "Refunded"],
-  Shipped:    ["Delivered", "Refunded"],
-  Delivered:  ["Refunded"],
+  Pending:      ["Confirmed", "Failed", "Cancelled"],
+  Confirmed:    ["Received", "Processing", "Cancelled", "Refunded"],
+  Received:     ["ReadyToPrint", "Cancelled", "Refunded"],
+  ReadyToPrint: ["Printed", "Cancelled", "Refunded"],
+  Printed:      ["ReadyToShip", "Cancelled", "Refunded"],
+  ReadyToShip:  ["Shipped", "Printed", "Cancelled", "Refunded"],
+  Processing:   ["Shipped", "Received", "Cancelled", "Refunded"],
+  Shipped:      ["Delivered", "Refunded"],
+  Delivered:    ["Refunded"],
 };
+
+const STATUS_COLORS: Record<string, string> = {
+  Pending:      "bg-slate-100 text-slate-700",
+  Confirmed:    "bg-blue-100 text-blue-800",
+  Received:     "bg-yellow-100 text-yellow-800",
+  ReadyToPrint: "bg-orange-100 text-orange-800",
+  Printed:      "bg-purple-100 text-purple-800",
+  ReadyToShip:  "bg-emerald-100 text-emerald-800",
+  Processing:   "bg-cyan-100 text-cyan-800",
+  Shipped:      "bg-indigo-100 text-indigo-800",
+  Delivered:    "bg-green-100 text-green-800",
+  Cancelled:    "bg-red-100 text-red-700",
+  Failed:       "bg-red-100 text-red-700",
+  Refunded:     "bg-amber-100 text-amber-700",
+};
+
+const displayStatus = (s: string) =>
+  s === "ReadyToPrint" ? "Ready to Print" :
+  s === "ReadyToShip"  ? "Ready to Ship"  : s;
 
 interface ReturnRequestDetail {
   id: string;
@@ -219,7 +242,7 @@ export default function OrderDetail() {
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={() => navigate("/orders")}><ArrowLeft className="h-4 w-4 mr-1" />Orders</Button>
           <h1 className="text-xl font-semibold">Order {order.orderNumber}</h1>
-          <span className="rounded-full px-2 py-1 text-xs bg-slate-100">{order.status}</span>
+          <span className={`rounded-full px-2 py-1 text-xs font-medium ${STATUS_COLORS[order.status] ?? "bg-slate-100 text-slate-700"}`}>{displayStatus(order.status)}</span>
           <span className="rounded-full px-2 py-1 text-xs bg-slate-100">{order.podStatus}</span>
         </div>
         <div className="flex items-center gap-2">
@@ -321,7 +344,7 @@ export default function OrderDetail() {
                       </SelectTrigger>
                       <SelectContent>
                         {STATUS_TRANSITIONS[order.status].map((s) => (
-                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                          <SelectItem key={s} value={s}>{displayStatus(s)}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>

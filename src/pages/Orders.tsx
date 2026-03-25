@@ -26,7 +26,26 @@ interface PagedResult<T> {
   pageSize: number;
 }
 
-const STATUS_OPTIONS = ["All", "Pending", "Confirmed", "Processing", "Shipped", "Delivered", "Cancelled", "Refunded"];
+const STATUS_OPTIONS = ["All", "Pending", "Confirmed", "Received", "ReadyToPrint", "Printed", "ReadyToShip", "Processing", "Shipped", "Delivered", "Cancelled", "Failed", "Refunded"];
+
+const STATUS_COLORS: Record<string, string> = {
+  Pending:      "bg-slate-100 text-slate-700",
+  Confirmed:    "bg-blue-100 text-blue-800",
+  Received:     "bg-yellow-100 text-yellow-800",
+  ReadyToPrint: "bg-orange-100 text-orange-800",
+  Printed:      "bg-purple-100 text-purple-800",
+  ReadyToShip:  "bg-emerald-100 text-emerald-800",
+  Processing:   "bg-cyan-100 text-cyan-800",
+  Shipped:      "bg-indigo-100 text-indigo-800",
+  Delivered:    "bg-green-100 text-green-800",
+  Cancelled:    "bg-red-100 text-red-700",
+  Failed:       "bg-red-100 text-red-700",
+  Refunded:     "bg-amber-100 text-amber-700",
+};
+
+const displayStatus = (s: string) =>
+  s === "ReadyToPrint" ? "Ready to Print" :
+  s === "ReadyToShip"  ? "Ready to Ship"  : s;
 const POD_STATUS_OPTIONS = ["All", "Pending", "In Production", "Packed", "Shipped", "Delivered", "Failed"];
 
 export default function Orders() {
@@ -101,7 +120,7 @@ export default function Orders() {
         </form>
         <Select value={status} onValueChange={(v) => { setStatus(v); setPage(1); }}>
           <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>{STATUS_OPTIONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+          <SelectContent>{STATUS_OPTIONS.map((s) => <SelectItem key={s} value={s}>{displayStatus(s)}</SelectItem>)}</SelectContent>
         </Select>
         <Select value={podStatus} onValueChange={(v) => { setPodStatus(v); setPage(1); }}>
           <SelectTrigger><SelectValue /></SelectTrigger>
@@ -146,7 +165,7 @@ export default function Orders() {
                 <td className="px-4 py-3 max-w-[220px] truncate text-slate-600">{o.productPreview}</td>
                 <td className="px-4 py-3 text-right font-medium">₹{o.totalAmount.toFixed(2)}</td>
                 <td className="px-4 py-3 text-center">
-                  <span className="rounded-full bg-slate-100 text-slate-700 px-2 py-1 text-xs">{o.podStatus || o.status}</span>
+                  <span className={`rounded-full px-2 py-1 text-xs font-medium ${STATUS_COLORS[o.status] ?? "bg-slate-100 text-slate-700"}`}>{displayStatus(o.status)}</span>
                 </td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex items-center justify-end gap-1">
