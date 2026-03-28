@@ -14,7 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Download, Loader2, Package, ChevronRight, Undo2 } from "lucide-react";
+import { ArrowLeft, Download, Loader2, Package, ChevronRight, Undo2, Truck, ExternalLink } from "lucide-react";
 
 interface VendorOrderItem {
   productTitle: string;
@@ -32,6 +32,9 @@ interface VendorOrderDetail {
   orderNotes: string | null;
   items: VendorOrderItem[];
   createdAt: string;
+  nimbuspostAwb?: string;
+  shippingLabelUrl?: string;
+  trackingUrl?: string;
 }
 
 // Production pipeline — each status maps to the next step (vendor-settable only)
@@ -49,6 +52,7 @@ const STATUS_COLORS: Record<string, string> = {
   ReadyToPrint: "bg-orange-100 text-orange-800",
   Printed:      "bg-purple-100 text-purple-800",
   ReadyToShip:  "bg-emerald-100 text-emerald-800",
+  Shipped:      "bg-indigo-100 text-indigo-800",
 };
 
 export default function VendorOrderDetail() {
@@ -95,7 +99,8 @@ export default function VendorOrderDetail() {
 
   const displayStatus = (s: string) =>
     s === "ReadyToPrint" ? "Ready to Print" :
-    s === "ReadyToShip"  ? "Ready to Ship"  : s;
+    s === "ReadyToShip"  ? "Ready to Ship"  :
+    s;
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -199,6 +204,46 @@ export default function VendorOrderDetail() {
           </>
         );
       })()}
+
+      {/* Shipping Label — shown once admin has approved and AWB is available */}
+      {order.nimbuspostAwb && (
+        <div className="rounded-lg border bg-white p-5 space-y-3">
+          <div className="flex items-center gap-2 text-indigo-700 font-medium">
+            <Truck className="h-4 w-4" />
+            Shipment Booked
+          </div>
+          <div className="flex flex-wrap items-center gap-4 text-sm">
+            <div>
+              <span className="text-slate-500">AWB: </span>
+              <span className="font-mono font-semibold">{order.nimbuspostAwb}</span>
+            </div>
+            {order.trackingUrl && (
+              <a
+                href={order.trackingUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-blue-600 underline"
+              >
+                Track shipment <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
+          </div>
+          {order.shippingLabelUrl ? (
+            <a
+              href={order.shippingLabelUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <Button className="gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white">
+                <Download className="h-4 w-4" />
+                Download Shipping Label
+              </Button>
+            </a>
+          ) : (
+            <p className="text-sm text-slate-500 italic">Label URL not available — contact admin.</p>
+          )}
+        </div>
+      )}
 
       {/* Order Notes */}
       {order.orderNotes && (

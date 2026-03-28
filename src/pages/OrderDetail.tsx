@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, FileDown, Pencil, RotateCcw, Truck, CheckCircle, XCircle } from "lucide-react";
+import { ArrowLeft, FileDown, Pencil, RotateCcw, Truck, CheckCircle, XCircle, PackageCheck, ExternalLink } from "lucide-react";
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -73,6 +73,8 @@ interface OrderDetailResponse {
   podStatus: string;
   trackingNumber?: string;
   trackingUrl?: string;
+  nimbuspostAwb?: string;
+  shippingLabelUrl?: string;
   email: string;
   firstName: string;
   lastName: string;
@@ -110,6 +112,7 @@ export default function OrderDetail() {
   const [returnRequest, setReturnRequest] = useState<ReturnRequestDetail | null>(null);
   const [returnNotes, setReturnNotes] = useState("");
   const [returnActioning, setReturnActioning] = useState<"Approved" | "Rejected" | null>(null);
+  const [approvingShipment, setApprovingShipment] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -160,6 +163,30 @@ export default function OrderDetail() {
         toast({ title: "Order cancelled" });
       })
       .catch((e) => toast({ title: "Error", description: e.message, variant: "destructive" }));
+  };
+
+  const approveShipment = async () => {
+    if (!id) return;
+    setApprovingShipment(true);
+    try {
+      const result = await api.post<{ awbNumber: string; labelUrl: string; trackingUrl: string }>(
+        `/admin/orders/${id}/approve-shipment`,
+        {}
+      );
+      setOrder((prev) => prev ? {
+        ...prev,
+        status: "Shipped",
+        nimbuspostAwb: result.awbNumber,
+        shippingLabelUrl: result.labelUrl,
+        trackingNumber: result.awbNumber,
+        trackingUrl: result.trackingUrl,
+      } : prev);
+      toast({ title: "Shipment approved", description: `AWB: ${result.awbNumber}. Pickup scheduled for tomorrow.` });
+    } catch (e: unknown) {
+      toast({ title: "Shipment approval failed", description: e instanceof Error ? e.message : "Unknown error", variant: "destructive" });
+    } finally {
+      setApprovingShipment(false);
+    }
   };
 
   const issueRefund = async () => {
@@ -317,6 +344,64 @@ export default function OrderDetail() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ── Nimbuspost Approve Shipment Card ─────────────────────────── */}
+      {order.status === "ReadyToShip" && !order.nimbuspostAwb && (
+        <Card className="border-emerald-300 bg-emerald-50">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2 text-emerald-800">
+              <PackageCheck className="h-4 w-4" />
+              Order Ready to Ship
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex items-center justify-between gap-4">
+            <div className="text-sm text-emerald-700">
+              <p>The vendor has packed and marked this order as ready. Approve to create a Nimbuspost booking and schedule courier pickup automatically.</p>
+            </div>
+            <Button
+              className="shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
+              disabled={approvingShipment}
+              onClick={approveShipment}
+            >
+              {approvingShipment ? "Creating booking…" : "Approve & Book Pickup"}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── AWB / Label info (after approval) ────────────────────────── */}
+      {order.nimbuspostAwb && (
+        <Card className="border-indigo-200">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Truck className="h-4 w-4 text-indigo-600" />
+              Nimbuspost Shipment
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <div className="flex items-center gap-3">
+              <span className="text-slate-500">AWB:</span>
+              <span className="font-mono font-semibold">{order.nimbuspostAwb}</span>
+            </div>
+            {order.trackingUrl && (
+              <div className="flex items-center gap-3">
+                <span className="text-slate-500">Tracking:</span>
+                <a href={order.trackingUrl} target="_blank" rel="noreferrer" className="text-blue-600 underline flex items-center gap-1">
+                  Track shipment <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+            )}
+            {order.shippingLabelUrl && (
+              <div className="flex items-center gap-3">
+                <span className="text-slate-500">Label:</span>
+                <a href={order.shippingLabelUrl} target="_blank" rel="noreferrer" className="text-blue-600 underline flex items-center gap-1">
+                  Download PDF label <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* ── Fulfillment Card ─────────────────────────────────────────── */}
       {(order.trackingNumber || (STATUS_TRANSITIONS[order.status]?.length > 0)) && (
