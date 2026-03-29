@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, FileDown, Pencil, RotateCcw, Truck, CheckCircle, XCircle, PackageCheck, ExternalLink } from "lucide-react";
+import { ArrowLeft, FileDown, Pencil, RotateCcw, Truck, CheckCircle, XCircle, PackageCheck, ExternalLink, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,16 @@ const STATUS_COLORS: Record<string, string> = {
 const displayStatus = (s: string) =>
   s === "ReadyToPrint" ? "Ready to Print" :
   s === "ReadyToShip"  ? "Ready to Ship"  : s;
+
+interface RefundStatusResponse {
+  tracked: boolean;
+  refundId?: string;
+  status?: 'created' | 'processed' | 'failed';
+  amountInPaise?: number;
+  currency?: string;
+  createdAt?: string;
+  failureReason?: string;
+}
 
 interface ReturnRequestDetail {
   id: string;
@@ -113,6 +123,9 @@ export default function OrderDetail() {
   const [returnNotes, setReturnNotes] = useState("");
   const [returnActioning, setReturnActioning] = useState<"Approved" | "Rejected" | null>(null);
   const [approvingShipment, setApprovingShipment] = useState(false);
+  const [undoCancelling, setUndoCancelling] = useState(false);
+  const [refundStatus, setRefundStatus] = useState<RefundStatusResponse | null>(null);
+  const [loadingRefundStatus, setLoadingRefundStatus] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -260,6 +273,40 @@ export default function OrderDetail() {
     }
   };
 
+  const handleUndoCancel = async () => {
+    if (!id) return;
+    if (!confirm('This will revert the order to Confirmed and return it to the processing queue. Are you sure?')) return;
+    setUndoCancelling(true);
+    try {
+      await api.post(`/orders/${id}/undo-cancel`, {});
+      setOrder((prev) => prev ? { ...prev, status: "Confirmed" } : prev);
+      toast({ title: 'Order restored', description: 'Order reverted to Confirmed.' });
+    } catch (err) {
+      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed.', variant: 'destructive' });
+    } finally {
+      setUndoCancelling(false);
+    }
+  };
+
+  const fetchRefundStatus = async () => {
+    if (!id) return;
+    setLoadingRefundStatus(true);
+    try {
+      const data = await api.get<RefundStatusResponse>(`/orders/${id}/refund-status`);
+      setRefundStatus(data);
+    } catch {
+      toast({ title: 'Error', description: 'Could not fetch refund status.', variant: 'destructive' });
+    } finally {
+      setLoadingRefundStatus(false);
+    }
+  };
+
+  const refundStatusColor = (s?: string) => {
+    if (s === 'processed') return 'text-green-600 bg-green-50';
+    if (s === 'failed')    return 'text-red-600 bg-red-50';
+    return 'text-yellow-600 bg-yellow-50';
+  };
+
   if (loading) return <p className="text-sm text-slate-500">Loading order...</p>;
   if (!order) return <p className="text-sm text-red-500">Order not found.</p>;
 
@@ -281,6 +328,17 @@ export default function OrderDetail() {
           </Button>
           {!["Cancelled", "Refunded", "Delivered"].includes(order.status) && (
             <Button size="sm" variant="destructive" onClick={cancelOrder}>Cancel Order</Button>
+          )}
+          {order.status === 'Cancelled' && (
+            <Button
+              variant="outline"
+              className="border-yellow-400 text-yellow-700 hover:bg-yellow-50"
+              onClick={handleUndoCancel}
+              disabled={undoCancelling}
+            >
+              {undoCancelling && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Undo Cancel
+            </Button>
           )}
         </div>
       </div>
@@ -533,6 +591,47 @@ export default function OrderDetail() {
             )}
           </CardContent>
         </Card>
+      )}
+
+      {/* ── Refund Status Card ───────────────────────────────────────── */}
+      {['Refunded', 'RefundInitiated', 'RefundFailed'].includes(order.status) && (
+        <div className="border rounded-lg p-4 mt-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold text-sm">Refund Status</h3>
+            <Button variant="ghost" size="sm" onClick={fetchRefundStatus} disabled={loadingRefundStatus}>
+              {loadingRefundStatus
+                ? <Loader2 className="h-3 w-3 animate-spin" />
+                : <span className="text-xs">↻ Refresh</span>}
+            </Button>
+          </div>
+          {refundStatus === null && (
+            <p className="text-xs text-muted-foreground">Click Refresh to fetch live status from Razorpay.</p>
+          )}
+          {refundStatus?.tracked === false && (
+            <p className="text-xs text-muted-foreground">Refund was processed manually — no Razorpay tracking available.</p>
+          )}
+          {refundStatus?.tracked !== false && refundStatus?.status && (
+            <div className="space-y-1 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">Status:</span>
+                <span className={`px-2 py-0.5 rounded text-xs font-medium ${refundStatusColor(refundStatus.status)}`}>
+                  {refundStatus.status}
+                </span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Amount: </span>
+                ₹{((refundStatus.amountInPaise ?? 0) / 100).toFixed(2)}
+              </div>
+              <div>
+                <span className="text-muted-foreground">Initiated: </span>
+                {refundStatus.createdAt ? new Date(refundStatus.createdAt).toLocaleString('en-IN') : '—'}
+              </div>
+              {refundStatus.failureReason && (
+                <div className="text-red-600 text-xs mt-1">Failure reason: {refundStatus.failureReason}</div>
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       <Dialog open={refundOpen} onOpenChange={setRefundOpen}>
