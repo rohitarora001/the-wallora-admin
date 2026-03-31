@@ -183,7 +183,7 @@ export default function OrderDetail() {
     setApprovingShipment(true);
     try {
       const result = await api.post<{ awbNumber: string; labelUrl: string; trackingUrl: string }>(
-        `/admin/orders/${id}/approve-shipment`,
+        `/orders/${id}/approve-shipment`,
         {}
       );
       setOrder((prev) => prev ? {
