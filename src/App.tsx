@@ -16,6 +16,7 @@ import Orders from "@/pages/Orders";
 import OrderDetail from "@/pages/OrderDetail";
 import OrderEdit from "@/pages/OrderEdit";
 import OrderHistory from "@/pages/OrderHistory";
+import Shipments from "@/pages/Shipments";
 import Customers from "@/pages/Customers";
 import CustomerDetail from "@/pages/CustomerDetail";
 import Reviews from "@/pages/Reviews";
@@ -48,6 +49,7 @@ const App = () => (
               <Route path="products/:id" element={<ProductDetail />} />
               <Route path="products/:id/edit" element={<ProductForm />} />
               <Route path="orders" element={<Orders />} />
+              <Route path="shipments" element={<Shipments />} />
               <Route path="orders/:id" element={<OrderDetail />} />
               <Route path="orders/:id/edit" element={<OrderEdit />} />
               <Route path="orders/:id/history" element={<OrderHistory />} />

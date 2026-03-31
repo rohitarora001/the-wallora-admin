@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Bell, HelpCircle, Image, LayoutDashboard, Layers, LogOut, MessageSquare, Package, PrinterCheck, Ruler, RotateCcw, ShoppingCart, Star, Tag, UserPlus, Users } from "lucide-react";
+import { Bell, HelpCircle, Image, LayoutDashboard, Layers, LogOut, MessageSquare, Package, PrinterCheck, Ruler, RotateCcw, ShoppingCart, Star, Tag, Truck, UserPlus, Users } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 const adminNavItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { to: "/orders", label: "Orders", icon: ShoppingCart },
+  { to: "/shipments", label: "Shipments", icon: Truck },
   { to: "/customers", label: "Customers", icon: Users },
   { to: "/users/new", label: "Create User", icon: UserPlus },
   { to: "/products", label: "Products", icon: Package },

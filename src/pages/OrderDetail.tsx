@@ -10,6 +10,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  extractTrackingEvents,
+  extractTrackingStatus,
+  type NimbusEnvelope,
+  type ShipmentTrackingEvent,
+} from "@/lib/shipmentTracking";
 
 interface OrderItem {
   id: string;
@@ -126,6 +132,9 @@ export default function OrderDetail() {
   const [undoCancelling, setUndoCancelling] = useState(false);
   const [refundStatus, setRefundStatus] = useState<RefundStatusResponse | null>(null);
   const [loadingRefundStatus, setLoadingRefundStatus] = useState(false);
+  const [shipmentTrackingStatus, setShipmentTrackingStatus] = useState("");
+  const [shipmentTrackingEvents, setShipmentTrackingEvents] = useState<ShipmentTrackingEvent[]>([]);
+  const [loadingShipmentTracking, setLoadingShipmentTracking] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -137,6 +146,29 @@ export default function OrderDetail() {
       .catch((e) => toast({ title: "Error", description: e.message, variant: "destructive" }))
       .finally(() => setLoading(false));
   }, [id, toast]);
+
+  useEffect(() => {
+    const trackingRef = order?.nimbuspostAwb ?? order?.trackingNumber ?? "";
+    if (!trackingRef) {
+      setShipmentTrackingStatus("");
+      setShipmentTrackingEvents([]);
+      return;
+    }
+
+    setLoadingShipmentTracking(true);
+    api.get<NimbusEnvelope>(`/admin/shipments/awb/${encodeURIComponent(trackingRef)}/tracking`)
+      .then((response) => {
+        const events = extractTrackingEvents(response.data);
+        const status = extractTrackingStatus(response.data, events);
+        setShipmentTrackingStatus(status);
+        setShipmentTrackingEvents(events);
+      })
+      .catch(() => {
+        setShipmentTrackingStatus("");
+        setShipmentTrackingEvents([]);
+      })
+      .finally(() => setLoadingShipmentTracking(false));
+  }, [order?.nimbuspostAwb, order?.trackingNumber]);
 
   const updateStatus = async () => {
     if (!id || !nextStatus) return;
@@ -307,6 +339,12 @@ export default function OrderDetail() {
     return 'text-yellow-600 bg-yellow-50';
   };
 
+  const formatShipmentTimestamp = (value: string) => {
+    if (!value) return "N/A";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleString("en-IN");
+  };
+
   if (loading) return <p className="text-sm text-slate-500">Loading order...</p>;
   if (!order) return <p className="text-sm text-red-500">Order not found.</p>;
 
@@ -428,7 +466,7 @@ export default function OrderDetail() {
       )}
 
       {/* ── AWB / Label info (after approval) ────────────────────────── */}
-      {order.nimbuspostAwb && (
+      {(order.nimbuspostAwb || order.trackingNumber) && (
         <Card className="border-indigo-200">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
@@ -436,10 +474,23 @@ export default function OrderDetail() {
               Nimbuspost Shipment
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm">
+          <CardContent className="space-y-3 text-sm">
             <div className="flex items-center gap-3">
-              <span className="text-slate-500">AWB:</span>
-              <span className="font-mono font-semibold">{order.nimbuspostAwb}</span>
+              <span className="text-slate-500">AWB / Tracking:</span>
+              <span className="font-mono font-semibold">{order.nimbuspostAwb || order.trackingNumber}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-slate-500">Shipment Status:</span>
+              {loadingShipmentTracking ? (
+                <span className="inline-flex items-center text-xs text-slate-500">
+                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  Fetching live status...
+                </span>
+              ) : (
+                <span className="inline-flex rounded-full px-2 py-1 text-xs font-medium bg-indigo-50 text-indigo-700">
+                  {shipmentTrackingStatus || order.status}
+                </span>
+              )}
             </div>
             {order.trackingUrl && (
               <div className="flex items-center gap-3">
@@ -455,6 +506,24 @@ export default function OrderDetail() {
                 <a href={order.shippingLabelUrl} target="_blank" rel="noreferrer" className="text-blue-600 underline flex items-center gap-1">
                   Download PDF label <ExternalLink className="h-3 w-3" />
                 </a>
+              </div>
+            )}
+            {!loadingShipmentTracking && shipmentTrackingEvents.length > 0 && (
+              <div className="border-t pt-3 space-y-2">
+                <p className="text-slate-700 font-medium">Recent Tracking Updates</p>
+                {shipmentTrackingEvents.slice(0, 5).map((event, index) => (
+                  <div key={`${event.timestamp}-${event.status}-${index}`} className="rounded-md border p-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-medium">{event.status || "Status update"}</p>
+                      <p className="text-xs text-slate-500">{formatShipmentTimestamp(event.timestamp)}</p>
+                    </div>
+                    {(event.location || event.remarks) && (
+                      <p className="text-xs text-slate-600 mt-1">
+                        {[event.location, event.remarks].filter(Boolean).join(" - ")}
+                      </p>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
           </CardContent>
