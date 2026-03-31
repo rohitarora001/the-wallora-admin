@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -35,6 +36,10 @@ interface VendorOrderDetail {
   nimbuspostAwb?: string;
   shippingLabelUrl?: string;
   trackingUrl?: string;
+  packedWeightKg?: number;
+  packedLengthCm?: number;
+  packedWidthCm?: number;
+  packedHeightCm?: number;
 }
 
 // Production pipeline — each status maps to the next step (vendor-settable only)
@@ -61,6 +66,10 @@ export default function VendorOrderDetail() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [packedWeightKg, setPackedWeightKg] = useState("");
+  const [packedLengthCm, setPackedLengthCm] = useState("");
+  const [packedWidthCm, setPackedWidthCm] = useState("");
+  const [packedHeightCm, setPackedHeightCm] = useState("");
 
   const { data: order, isLoading, isError } = useQuery<VendorOrderDetail>({
     queryKey: ["vendor-order", id],
@@ -68,9 +77,23 @@ export default function VendorOrderDetail() {
     enabled: !!id,
   });
 
+  useEffect(() => {
+    if (!order) return;
+    setPackedWeightKg(order.packedWeightKg?.toString() ?? "");
+    setPackedLengthCm(order.packedLengthCm?.toString() ?? "");
+    setPackedWidthCm(order.packedWidthCm?.toString() ?? "");
+    setPackedHeightCm(order.packedHeightCm?.toString() ?? "");
+  }, [order?.id]);
+
   const updateMutation = useMutation({
-    mutationFn: (status: string) =>
-      api.patch(`/vendor/orders/${id}/status`, { status }),
+    mutationFn: (payload: {
+      status: string;
+      packedWeightKg?: number;
+      packedLengthCm?: number;
+      packedWidthCm?: number;
+      packedHeightCm?: number;
+    }) =>
+      api.patch(`/vendor/orders/${id}/status`, payload),
     onSuccess: () => {
       toast({ title: "Status updated successfully" });
       queryClient.invalidateQueries({ queryKey: ["vendor-order", id] });
@@ -80,6 +103,33 @@ export default function VendorOrderDetail() {
       toast({ title: "Failed to update status", description: err.message, variant: "destructive" });
     },
   });
+
+  const buildReadyToShipPayload = () => {
+    const weight = Number(packedWeightKg);
+    const length = Number(packedLengthCm);
+    const width = Number(packedWidthCm);
+    const height = Number(packedHeightCm);
+
+    if (!Number.isFinite(weight) || weight <= 0 ||
+        !Number.isFinite(length) || length <= 0 ||
+        !Number.isFinite(width) || width <= 0 ||
+        !Number.isFinite(height) || height <= 0) {
+      toast({
+        title: "Packed details required",
+        description: "Enter valid packed weight and dimensions before marking this order Ready to Ship.",
+        variant: "destructive",
+      });
+      return null;
+    }
+
+    return {
+      status: "ReadyToShip",
+      packedWeightKg: Number(weight.toFixed(3)),
+      packedLengthCm: Math.round(length),
+      packedWidthCm: Math.round(width),
+      packedHeightCm: Math.round(height),
+    };
+  };
 
   if (isLoading) {
     return (
@@ -129,7 +179,12 @@ export default function VendorOrderDetail() {
           return (
             <div className="space-y-3">
               <div className="rounded-lg border bg-emerald-50 border-emerald-200 p-5 text-sm text-emerald-700 font-medium">
-                ✓ Order is Ready to Ship — awaiting admin to mark as Shipped.
+                ✓ Order is Ready to Ship - awaiting admin to mark as Shipped.
+                {order.packedWeightKg && order.packedLengthCm && order.packedWidthCm && order.packedHeightCm && (
+                  <p className="mt-2 text-xs font-normal">
+                    Packed: {order.packedLengthCm}x{order.packedWidthCm}x{order.packedHeightCm} cm, {order.packedWeightKg} kg
+                  </p>
+                )}
               </div>
               {/* Undo button — in case vendor made a mistake */}
               <div className="rounded-lg border bg-white p-4 flex items-center justify-between">
@@ -141,7 +196,7 @@ export default function VendorOrderDetail() {
                   variant="outline"
                   size="sm"
                   disabled={updateMutation.isPending}
-                  onClick={() => updateMutation.mutate("Printed")}
+                  onClick={() => updateMutation.mutate({ status: "Printed" })}
                   className="gap-1.5 text-slate-600"
                 >
                   {updateMutation.isPending
@@ -169,7 +224,7 @@ export default function VendorOrderDetail() {
               </div>
               <Button
                 disabled={updateMutation.isPending}
-                onClick={() => isReadyToShipNext ? setConfirmOpen(true) : updateMutation.mutate(next.value)}
+                onClick={() => isReadyToShipNext ? setConfirmOpen(true) : updateMutation.mutate({ status: next.value })}
                 className="gap-1.5"
               >
                 {updateMutation.isPending
@@ -185,15 +240,63 @@ export default function VendorOrderDetail() {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Confirm: Ready to Ship?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Please confirm that all items in this order have been printed, quality-checked, and securely packed. Once marked as Ready to Ship, the admin will be notified to arrange pickup.
+                    Please confirm that all items in this order have been printed, quality-checked, and securely packed. Packed dimensions and actual weight are required for courier selection.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
+                <div className="grid grid-cols-2 gap-3 py-1">
+                  <div className="space-y-1">
+                    <p className="text-xs text-slate-500">Actual Weight (kg)</p>
+                    <Input
+                      type="number"
+                      min="0.1"
+                      step="0.001"
+                      placeholder="e.g. 1.850"
+                      value={packedWeightKg}
+                      onChange={(e) => setPackedWeightKg(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-slate-500">Length (cm)</p>
+                    <Input
+                      type="number"
+                      min="1"
+                      step="1"
+                      placeholder="e.g. 45"
+                      value={packedLengthCm}
+                      onChange={(e) => setPackedLengthCm(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-slate-500">Width (cm)</p>
+                    <Input
+                      type="number"
+                      min="1"
+                      step="1"
+                      placeholder="e.g. 34"
+                      value={packedWidthCm}
+                      onChange={(e) => setPackedWidthCm(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-slate-500">Height (cm)</p>
+                    <Input
+                      type="number"
+                      min="1"
+                      step="1"
+                      placeholder="e.g. 8"
+                      value={packedHeightCm}
+                      onChange={(e) => setPackedHeightCm(e.target.value)}
+                    />
+                  </div>
+                </div>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Go Back</AlertDialogCancel>
                   <AlertDialogAction
                     onClick={() => {
+                      const payload = buildReadyToShipPayload();
+                      if (!payload) return;
                       setConfirmOpen(false);
-                      updateMutation.mutate("ReadyToShip");
+                      updateMutation.mutate(payload);
                     }}
                   >
                     Yes, Ready to Ship
